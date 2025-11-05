@@ -1,6 +1,6 @@
 # Novel Writing Agent 📚✨
 
-An intelligent agent for creative novel writing powered by Claude and the Anthropic SDK. This agent can generate story outlines, create compelling characters, write complete chapters, and produce full-length novels with coherent narratives.
+An intelligent agent for creative novel writing powered by **Claude Agent SDK** (`claude-agent-sdk-python`). This agent uses custom tools and the Model Context Protocol (MCP) to generate story outlines, create compelling characters, write complete chapters, and produce full-length novels with coherent narratives.
 
 ## Features
 
@@ -17,6 +17,16 @@ An intelligent agent for creative novel writing powered by Claude and the Anthro
 💾 **Export Options**: Save novels in readable text format
 
 🎯 **Interactive Mode**: Work with the agent interactively to craft your story step by step
+
+🛠️ **Custom Tools**: Built with `@tool` decorator and MCP server for extensible functionality
+
+## Technology Stack
+
+This project is built using:
+- **[claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python)** - Anthropic's official Python SDK for building agents
+- **Custom Tools** - Specialized tools for novel writing using the `@tool` decorator
+- **MCP (Model Context Protocol)** - In-process MCP server for better performance
+- **Async/Await** - Full async support for efficient API calls
 
 ## Installation
 
@@ -76,28 +86,97 @@ In interactive mode, you can:
 - Write individual chapters
 - Generate characters
 - Create complete novels
-- Save your work
+- Get writing tips
+- Send custom prompts
 
 ### Python API
 
 Use the agent programmatically:
 
 ```python
+import anyio
 from novel_agent.agent import NovelWritingAgent
 
-# Initialize the agent
-agent = NovelWritingAgent()
+async def main():
+    # Initialize the agent
+    agent = NovelWritingAgent()
 
-# Create a complete novel
-novel = agent.create_novel(
-    genre="fantasy",
-    premise="A young mage discovers a forbidden spell that could save or destroy the world",
-    num_chapters=10,
-    themes=["power", "responsibility", "sacrifice"]
+    # Create a complete novel
+    result = await agent.create_novel(
+        genre="fantasy",
+        premise="A young mage discovers a forbidden spell that could save or destroy the world",
+        num_chapters=10,
+        themes=["power", "responsibility", "sacrifice"]
+    )
+
+# Run the async function
+anyio.run(main)
+```
+
+## Architecture
+
+### Custom Tools
+
+The agent uses custom tools defined with the `@tool` decorator from claude-agent-sdk:
+
+```python
+from claude_agent_sdk import tool
+
+@tool(
+    "create_story_outline",
+    "Create a comprehensive story outline with plot structure, characters, and themes",
+    {
+        "genre": str,
+        "premise": str,
+        "themes": str,
+        "num_chapters": int,
+    }
 )
+async def create_story_outline_tool(args):
+    # Tool implementation
+    pass
+```
 
-# Save the novel
-agent.save_novel(novel)
+Available tools:
+- `create_story_outline` - Generate complete story structures
+- `create_character` - Develop detailed characters
+- `write_chapter` - Write full chapters with narrative flow
+- `save_story_content` - Save work to files
+- `get_writing_tips` - Get writing guidance
+
+### MCP Server
+
+Tools are packaged into an in-process MCP server for high performance:
+
+```python
+from claude_agent_sdk import create_sdk_mcp_server
+
+server = create_sdk_mcp_server(
+    name="novel-writing-tools",
+    version="1.0.0",
+    tools=[
+        create_story_outline_tool,
+        create_character_tool,
+        write_chapter_tool,
+        save_story_content_tool,
+        get_writing_tips_tool,
+    ],
+)
+```
+
+### Agent Configuration
+
+The agent is configured with `ClaudeAgentOptions`:
+
+```python
+from claude_agent_sdk import ClaudeAgentOptions
+
+options = ClaudeAgentOptions(
+    system_prompt="You are an expert novelist...",
+    mcp_servers={"novel-writing": server},
+    allowed_tools=["create_story_outline", "create_character", ...],
+    max_turns=50,
+)
 ```
 
 ## Examples
@@ -108,7 +187,7 @@ The `examples/` directory contains several demonstration scripts:
 ```bash
 python examples/basic_usage.py
 ```
-Creates a short sci-fi story with 3 chapters.
+Creates a short sci-fi story with 3 chapters using the agent's tools.
 
 ### Create Outline
 ```bash
@@ -128,62 +207,14 @@ Creates multiple characters with detailed backgrounds and motivations.
 
 The main class for interacting with the novel writing system.
 
-#### `create_story_outline(genre, premise, themes=None, num_chapters=10)`
+#### `__init__(config=None)`
 
-Create a comprehensive story outline.
-
-**Parameters:**
-- `genre` (str): The genre of the story (e.g., "fantasy", "sci-fi", "mystery")
-- `premise` (str): The basic premise or concept of the story
-- `themes` (List[str], optional): List of themes to explore
-- `num_chapters` (int, optional): Target number of chapters (default: 10)
-
-**Returns:** `StoryOutline` object
-
-**Example:**
-```python
-outline = agent.create_story_outline(
-    genre="fantasy",
-    premise="A thief must steal a magical artifact to save their city",
-    themes=["redemption", "loyalty"],
-    num_chapters=12
-)
-```
-
-#### `create_character(name, role, story_context="")`
-
-Create a detailed character.
+Initialize the agent with custom tools and MCP server.
 
 **Parameters:**
-- `name` (str): Character's name
-- `role` (str): Character's role ("main", "supporting", "minor")
-- `story_context` (str, optional): Context about the story
+- `config` (AgentConfig, optional): Configuration object
 
-**Returns:** `Character` object
-
-**Example:**
-```python
-character = agent.create_character(
-    name="Elena Ravenwood",
-    role="main",
-    story_context="A fantasy story about magical thieves"
-)
-```
-
-#### `write_chapter(chapter_number, chapter_title, outline, previous_chapters_summary="", target_words=2000)`
-
-Write a complete chapter.
-
-**Parameters:**
-- `chapter_number` (int): The chapter number
-- `chapter_title` (str): The chapter title
-- `outline` (StoryOutline): The story outline
-- `previous_chapters_summary` (str, optional): Summary of previous chapters
-- `target_words` (int, optional): Target word count (default: 2000)
-
-**Returns:** `Chapter` object
-
-#### `create_novel(genre, premise, num_chapters=5, themes=None)`
+#### `async create_novel(genre, premise, num_chapters=5, themes=None)`
 
 Create a complete novel from start to finish.
 
@@ -193,11 +224,11 @@ Create a complete novel from start to finish.
 - `num_chapters` (int, optional): Number of chapters (default: 5)
 - `themes` (List[str], optional): Themes to explore
 
-**Returns:** `Novel` object
+**Returns:** str - Result text from the agent
 
 **Example:**
 ```python
-novel = agent.create_novel(
+result = await agent.create_novel(
     genre="mystery",
     premise="A detective must solve a murder in a locked room",
     num_chapters=8,
@@ -205,71 +236,45 @@ novel = agent.create_novel(
 )
 ```
 
-#### `save_novel(novel, filename=None)`
+#### `async create_story_outline(genre, premise, themes=None, num_chapters=10)`
 
-Save the novel to a file.
-
-**Parameters:**
-- `novel` (Novel): The novel to save
-- `filename` (str, optional): Output filename (auto-generated if not provided)
-
-**Returns:** Path to the saved file
-
-#### `edit_content(content, edit_instructions)`
-
-Edit and refine content.
+Create a comprehensive story outline.
 
 **Parameters:**
-- `content` (str): The content to edit
-- `edit_instructions` (str): Specific editing instructions
+- `genre` (str): The genre of the story
+- `premise` (str): The basic premise
+- `themes` (List[str], optional): List of themes
+- `num_chapters` (int, optional): Target number of chapters (default: 10)
 
-**Returns:** Edited content as string
+**Returns:** str - The outline as text
 
-## Data Models
+#### `async create_character(name, role, story_context="")`
 
-### StoryOutline
-```python
-class StoryOutline(BaseModel):
-    title: str
-    genre: str
-    premise: str
-    themes: List[str]
-    setting: str
-    plot_points: List[str]
-    characters: List[Character]
-```
+Create a detailed character.
 
-### Character
-```python
-class Character(BaseModel):
-    name: str
-    description: str
-    role: str  # "main", "supporting", "minor"
-    personality: Optional[str]
-    background: Optional[str]
-    motivations: Optional[str]
-```
+**Parameters:**
+- `name` (str): Character's name
+- `role` (str): Character's role ("main", "supporting", "minor")
+- `story_context` (str, optional): Context about the story
 
-### Chapter
-```python
-class Chapter(BaseModel):
-    number: int
-    title: str
-    content: str
-    summary: Optional[str]
-    word_count: int
-```
+**Returns:** str - Character description
 
-### Novel
-```python
-class Novel(BaseModel):
-    outline: StoryOutline
-    chapters: List[Chapter]
+#### `async write_chapter(chapter_number, chapter_title, plot_point, story_context="", target_words=2000)`
 
-    @property
-    def total_word_count(self) -> int:
-        # Returns total word count of all chapters
-```
+Write a complete chapter.
+
+**Parameters:**
+- `chapter_number` (int): The chapter number
+- `chapter_title` (str): The chapter title
+- `plot_point` (str): The main plot point for this chapter
+- `story_context` (str, optional): Context about the story
+- `target_words` (int, optional): Target word count (default: 2000)
+
+**Returns:** str - The chapter content
+
+#### `async interactive_mode()`
+
+Start an interactive writing session with the agent.
 
 ## Configuration
 
@@ -296,58 +301,14 @@ LOG_LEVEL=INFO
 - `OUTPUT_DIR`: Directory for generated novels (default: generated_stories)
 - `LOG_LEVEL`: Logging level (default: INFO)
 
-## Advanced Usage
+## How It Works
 
-### Custom Temperature and Tokens
-
-```python
-from novel_agent.config import AgentConfig
-
-config = AgentConfig()
-config.temperature = 0.9  # More creative
-config.max_tokens = 8192  # Longer outputs
-
-agent = NovelWritingAgent(config)
-```
-
-### Editing Existing Content
-
-```python
-chapter_content = "Your chapter content here..."
-
-edited = agent.edit_content(
-    content=chapter_content,
-    edit_instructions="Make the dialogue more natural and add more sensory details"
-)
-```
-
-### Building Novels Incrementally
-
-```python
-from novel_agent.models import Novel
-
-# Create outline
-outline = agent.create_story_outline(
-    genre="thriller",
-    premise="A conspiracy unfolds in the highest levels of government"
-)
-
-# Create novel object
-novel = Novel(outline=outline)
-
-# Write chapters one at a time
-for i in range(1, 6):
-    chapter = agent.write_chapter(
-        chapter_number=i,
-        chapter_title=f"Chapter {i}",
-        outline=outline,
-        previous_chapters_summary=get_summary(novel)
-    )
-    novel.add_chapter(chapter)
-
-    # Save after each chapter
-    agent.save_novel(novel)
-```
+1. **Tool Definition**: Custom tools are defined using the `@tool` decorator from claude-agent-sdk
+2. **MCP Server**: Tools are packaged into an in-process MCP server for high performance
+3. **Agent Initialization**: The `NovelWritingAgent` creates an agent with these tools
+4. **Query Execution**: When you call agent methods, they use `query()` to interact with Claude
+5. **Tool Invocation**: Claude autonomously decides when to use tools based on the prompt
+6. **Result Streaming**: Results stream back asynchronously as they're generated
 
 ## Tips for Best Results
 
@@ -375,25 +336,24 @@ cp .env.example .env
 # Edit .env and add your key
 ```
 
-### Chapters are too short/long
+### Import errors with claude_agent_sdk
 
-Adjust the `target_words` parameter:
-```python
-chapter = agent.write_chapter(
-    chapter_number=1,
-    chapter_title="The Beginning",
-    outline=outline,
-    target_words=3000  # Longer chapter
-)
+Ensure you've installed the correct package:
+```bash
+pip install claude-agent-sdk
 ```
 
-### Output is too similar/repetitive
+### Async errors
 
-Increase the temperature:
+All agent methods are async. Make sure to use `await` and run with `anyio.run()`:
 ```python
-config = AgentConfig()
-config.temperature = 0.9
-agent = NovelWritingAgent(config)
+import anyio
+
+async def main():
+    agent = NovelWritingAgent()
+    await agent.create_novel(...)
+
+anyio.run(main)
 ```
 
 ## Project Structure
@@ -404,7 +364,10 @@ novel-agent/
 │   └── novel_agent/
 │       ├── __init__.py
 │       ├── main.py              # CLI entry point
-│       ├── agent.py             # Core agent implementation
+│       ├── agent.py             # Core agent with SDK integration
+│       ├── tools/               # Custom tools
+│       │   ├── __init__.py
+│       │   └── story_tools.py   # @tool decorated functions
 │       ├── models/              # Data models
 │       │   ├── __init__.py
 │       │   └── story.py
@@ -433,8 +396,14 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ## Acknowledgments
 
-- Built with [Anthropic's Claude](https://www.anthropic.com/)
-- Powered by the Anthropic Python SDK
+- Built with [Anthropic's Claude Agent SDK](https://github.com/anthropics/claude-agent-sdk-python)
+- Powered by [Claude](https://www.anthropic.com/)
+
+## Resources
+
+- [Claude Agent SDK Documentation](https://github.com/anthropics/claude-agent-sdk-python)
+- [Model Context Protocol (MCP)](https://modelcontextprotocol.io/)
+- [Anthropic API Documentation](https://docs.anthropic.com/)
 
 ## Support
 
@@ -443,3 +412,5 @@ For issues, questions, or suggestions, please open an issue on GitHub.
 ---
 
 **Happy Writing! 📚✨**
+
+*Built with claude-agent-sdk-python - Anthropic's official Python SDK for building agents with Claude.*
