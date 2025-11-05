@@ -1,0 +1,19 @@
+[project]
+name = "novel-agent"
+version = "0.1.0"
+description = "An intelligent agent for creative novel writing using Claude"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "anthropic>=0.39.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.0.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+novel-agent = "novel_agent.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
